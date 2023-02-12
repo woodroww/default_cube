@@ -1,12 +1,53 @@
+use bevy::ecs::schedule::ShouldRun;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy_inspector_egui::bevy_egui::EguiContext;
 
-pub struct CameraPlugin;
+#[derive(Default)]
+pub struct CameraPlugin {
+    need_update: bool,
+}
+
+#[derive(Clone, Hash, PartialEq, Eq, Debug, RunCriteriaLabel)]
+pub struct CameraRunCriteria;
+
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum CameraSystem {
+    PanOrbit,
+    Adjust,
+}
+
+fn plugin_enabled(
+    mut egui_context: ResMut<EguiContext>,
+) -> ShouldRun {
+    // don't adjust camera if the mouse pointer in over an egui window
+    let ctx = egui_context.ctx_mut();
+    let pointer_over_area = ctx.is_pointer_over_area();
+    let using_pointer = ctx.is_using_pointer();
+    let wants_pointer = ctx.wants_pointer_input();
+    if wants_pointer || pointer_over_area || using_pointer {
+        ShouldRun::No
+    } else {
+        ShouldRun::Yes
+    }
+}
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(pan_orbit_camera);
+        //app.add_system(pan_orbit_camera)
+        //.add_system(adjust);
+
+        app.add_system_set_to_stage(
+            CoreStage::Update,
+            SystemSet::new()
+                .with_run_criteria(plugin_enabled.label(CameraRunCriteria))
+                .with_system(pan_orbit_camera.label(CameraSystem::PanOrbit))
+                .with_system(
+                    adjust
+                        .label(CameraSystem::Adjust)
+                        .after(CameraSystem::PanOrbit),
+                ),
+        );
     }
 }
 
@@ -29,7 +70,6 @@ impl Default for PanOrbitCamera {
     }
 }
 
-/// Pan the camera with middle mouse click, zoom with scroll wheel, orbit with right mouse click.
 fn pan_orbit_camera(
     windows: Res<Windows>,
     mut ev_motion: EventReader<MouseMotion>,
@@ -39,15 +79,6 @@ fn pan_orbit_camera(
     mut egui_context: ResMut<EguiContext>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
-    // swallow egui events for the camera movement
-    let ctx = egui_context.ctx_mut();
-    let pointer_over_area = ctx.is_pointer_over_area();
-    let using_pointer = ctx.is_using_pointer();
-    let wants_pointer = ctx.wants_pointer_input();
-    if wants_pointer || pointer_over_area || using_pointer {
-        return;
-    }
-
     // change input mapping for orbit and panning here
     let orbit_button = MouseButton::Middle;
     let pan_button = MouseButton::Middle;
@@ -59,7 +90,9 @@ fn pan_orbit_camera(
     let mut scroll = 0.0;
     let mut orbit_button_changed = false;
 
-    if input_mouse.pressed(orbit_button) && !(keyboard_input.pressed(pan_key_right) || keyboard_input.pressed(pan_key_left)) {
+    if input_mouse.pressed(orbit_button)
+        && !(keyboard_input.pressed(pan_key_right) || keyboard_input.pressed(pan_key_left))
+    {
         for ev in ev_motion.iter() {
             rotation_move += ev.delta;
         }
@@ -131,6 +164,14 @@ fn pan_orbit_camera(
             transform.translation =
                 pan_orbit.focus + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, pan_orbit.radius));
         }
+    }
+}
+
+fn adjust(mut query: Query<(&mut PanOrbitCamera, &mut Transform)>) {
+    for (pan_orbit, mut transform) in query.iter_mut() {
+        let rot_matrix = Mat3::from_quat(transform.rotation);
+        transform.translation =
+            pan_orbit.focus + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, pan_orbit.radius));
     }
 }
 

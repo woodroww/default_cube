@@ -1,4 +1,4 @@
-use bevy::{pbr::NotShadowCaster, prelude::*};
+use bevy::{pbr::NotShadowCaster, prelude::*, gltf::GltfMesh};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_inspector_egui::bevy_egui::EguiContext;
 use bevy_mod_picking::*;
@@ -31,13 +31,11 @@ fn main() {
         .add_startup_system(spawn_cubes)
         .add_startup_system(spawn_camera)
         .add_startup_system(spawn_axis)
-        .add_plugin(CameraPlugin)
+        .add_plugin(CameraPlugin::default())
         .add_plugins(DefaultPickingPlugins)
-        .add_plugin(bevy_transform_gizmo::TransformGizmoPlugin::new(
-            Quat::default(),
-        ))
+        .add_plugin(bevy_transform_gizmo::TransformGizmoPlugin)
         .add_system(keyboard_system)
-        .add_system(cube_click)
+        .add_system(center_selection)
         .add_system(egui_check)
         .run();
 }
@@ -62,54 +60,66 @@ fn egui_check(
     }
 }
 
-fn load_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn load_assets(mut commands: Commands, _asset_server: Res<AssetServer>) {
+    //let mesh = asset_server.load("cam.glb#Mesh0");
     commands.insert_resource(AppAssets);
 }
 
+fn check_load() {}
+/*
 fn check_load(
     mut commands: Commands,
     app_assets: Res<AppAssets>,
     asset_server: Res<AssetServer>,
     //mut mesh_assets: ResMut<Assets<Mesh>>,
     //mut image_assets: ResMut<Assets<Image>>,
+    gltf_assets: ResMut<Assets<GltfMesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     mut loaded: Local<bool>,
 ) {
-    //use bevy::asset::LoadState;
-    //if !*loaded && asset_server.get_load_state(app_assets..clone()) == LoadState::Loaded {
-    //}
+    use bevy::asset::LoadState;
+    if !*loaded && asset_server.get_load_state(app_assets.something.clone()) == LoadState::Loaded {
+        let gltf_mesh = gltf_assets.get(&app_assets.something.clone()).unwrap();
+        let bevy_mesh = gltf_mesh.primitives[0].mesh.clone();
+        let bevy_material = match gltf_mesh.primitives[0].material.clone() {
+            Some(material) => material,
+            None => materials.add(Color::rgb(0.1, 0.1, 1.0).into()),
+        };
+        *loaded = true;
+    }
 }
-
+*/
 
 fn keyboard_system(
-    keyboard_input: Res<Input<KeyCode>>,
+    _keyboard_input: Res<Input<KeyCode>>,
 ) {
     //if keyboard_input.just_pressed(KeyCode::Space) {
     //}
 }
 
-fn cube_click(
+fn center_selection(
     selection: Query<(&Transform, &Selection)>,
     mut camera: Query<(&mut PanOrbitCamera, &Transform)>,
+    keyboard_input: Res<Input<KeyCode>>,
 ) {
     if !selection.iter().any(|(_, selection)| selection.selected()) {
         return;
     }
 
-    let mut total = Vec3::ZERO;
-    let mut point_count = 0;
-
-    for (transform, selection) in &selection {
-        if selection.selected() {
-            total += transform.translation;
-            point_count += 1;
+    if keyboard_input.just_released(KeyCode::Period) {
+        let mut total = Vec3::ZERO;
+        let mut point_count = 0;
+        for (transform, selection) in &selection {
+            if selection.selected() {
+                total += transform.translation;
+                point_count += 1;
+            }
         }
+        let center = total / point_count as f32;
+        let (mut camera, camera_transform) = camera.single_mut();
+        camera.radius = (camera_transform.translation - center).length();
+        camera.focus = center;
     }
-
-    let center = total / point_count as f32;
-
-    let (mut camera, camera_transform) = camera.single_mut();
-    camera.radius = (camera_transform.translation - center).length();
-    camera.focus = center;
 }
 
 fn spawn_camera(mut commands: Commands) {
@@ -195,7 +205,7 @@ fn spawn_axis(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     let length = 20.0;
-    let width = 0.1;
+    let width = 0.05;
     let x = shape::Box::new(length, width, width);
     let y = shape::Box::new(width, length, width);
     let z = shape::Box::new(width, width, length);
