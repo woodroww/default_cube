@@ -35,7 +35,6 @@ fn main() {
         .add_plugins(DefaultPickingPlugins)
         .add_plugin(bevy_transform_gizmo::TransformGizmoPlugin)
         .add_system(keyboard_system)
-        .add_system(center_selection)
         .add_system(egui_check)
         .run();
 }
@@ -95,31 +94,6 @@ fn keyboard_system(
 ) {
     //if keyboard_input.just_pressed(KeyCode::Space) {
     //}
-}
-
-fn center_selection(
-    selection: Query<(&Transform, &Selection)>,
-    mut camera: Query<(&mut PanOrbitCamera, &Transform)>,
-    keyboard_input: Res<Input<KeyCode>>,
-) {
-    if !selection.iter().any(|(_, selection)| selection.selected()) {
-        return;
-    }
-
-    if keyboard_input.just_released(KeyCode::Period) {
-        let mut total = Vec3::ZERO;
-        let mut point_count = 0;
-        for (transform, selection) in &selection {
-            if selection.selected() {
-                total += transform.translation;
-                point_count += 1;
-            }
-        }
-        let center = total / point_count as f32;
-        let (mut camera, camera_transform) = camera.single_mut();
-        camera.radius = (camera_transform.translation - center).length();
-        camera.focus = center;
-    }
 }
 
 fn spawn_camera(mut commands: Commands) {

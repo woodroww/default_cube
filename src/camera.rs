@@ -34,9 +34,6 @@ fn plugin_enabled(
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        //app.add_system(pan_orbit_camera)
-        //.add_system(adjust);
-
         app.add_system_set_to_stage(
             CoreStage::Update,
             SystemSet::new()
@@ -46,8 +43,34 @@ impl Plugin for CameraPlugin {
                     adjust
                         .label(CameraSystem::Adjust)
                         .after(CameraSystem::PanOrbit),
-                ),
+                )
+                .with_system(center_selection)
         );
+    }
+}
+
+fn center_selection(
+    selection: Query<(&Transform, &bevy_mod_picking::Selection)>,
+    mut camera: Query<(&mut PanOrbitCamera, &Transform)>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
+    if !selection.iter().any(|(_, selection)| selection.selected()) {
+        return;
+    }
+
+    if keyboard_input.just_released(KeyCode::Period) {
+        let mut total = Vec3::ZERO;
+        let mut point_count = 0;
+        for (transform, selection) in &selection {
+            if selection.selected() {
+                total += transform.translation;
+                point_count += 1;
+            }
+        }
+        let center = total / point_count as f32;
+        let (mut camera, camera_transform) = camera.single_mut();
+        camera.radius = (camera_transform.translation - center).length();
+        camera.focus = center;
     }
 }
 
@@ -76,7 +99,6 @@ fn pan_orbit_camera(
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
     mut query: Query<(&mut PanOrbitCamera, &mut Transform, &Projection)>,
-    mut egui_context: ResMut<EguiContext>,
     keyboard_input: Res<Input<KeyCode>>,
 ) {
     // change input mapping for orbit and panning here
