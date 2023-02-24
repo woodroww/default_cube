@@ -2,9 +2,7 @@ use bevy::{pbr::NotShadowCaster, prelude::*, gltf::GltfMesh};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 use bevy_inspector_egui::bevy_egui::EguiContext;
 use bevy_mod_picking::*;
-use camera::{CameraPlugin, PanOrbitCamera};
-
-mod camera;
+use easy_cam::{CameraPlugin, PanOrbitCamera};
 
 #[derive(Component)]
 struct Clickable;
@@ -33,30 +31,8 @@ fn main() {
         .add_startup_system(spawn_axis)
         .add_plugin(CameraPlugin::default())
         .add_plugins(DefaultPickingPlugins)
-        .add_plugin(bevy_transform_gizmo::TransformGizmoPlugin)
         .add_system(keyboard_system)
-        .add_system(egui_check)
         .run();
-}
-
-/// Disable bevy_mod_picking plugin if the cursor is in a egui window
-fn egui_check(
-    mut state: ResMut<PickingPluginsState>,
-    mut egui_context: ResMut<EguiContext>,
-) {
-    let ctx = egui_context.ctx_mut();
-    let pointer_over_area = ctx.is_pointer_over_area();
-    let using_pointer = ctx.is_using_pointer();
-    let wants_pointer = ctx.wants_pointer_input();
-    if wants_pointer || pointer_over_area || using_pointer {
-        state.enable_picking = false;
-        state.enable_highlighting = false;
-        state.enable_interacting = false;
-    } else {
-        state.enable_picking = true;
-        state.enable_highlighting = true;
-        state.enable_interacting = true;
-    }
 }
 
 fn load_assets(mut commands: Commands, _asset_server: Res<AssetServer>) {
@@ -119,7 +95,7 @@ fn spawn_camera(mut commands: Commands) {
             focus,
             ..Default::default()
         },
-        PickingCameraBundle::default(),
+        bevy_mod_picking::PickingCameraBundle::default(),
         bevy_transform_gizmo::GizmoPickSource::default(),
     ));
 }

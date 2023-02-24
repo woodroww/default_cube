@@ -8,5 +8,7 @@ license = "MIT OR Apache-2.0"
 bevy = { version = "0.9.1", features = ["dynamic"] }
 bevy_mod_picking = "0.11.0"
 bevy-inspector-egui = "0.17.0"
-#bevy_transform_gizmo = { path = "../../../extern/my_bevy_transform_gizmo/" }
-bevy_transform_gizmo = { git = "https://github.com/woodroww/my_bevy_transform_gizmo" }
+bevy_transform_gizmo = { path = "../my_bevy_transform_gizmo/" }
+#bevy_transform_gizmo = { git = "https://github.com/woodroww/my_bevy_transform_gizmo" }
+# easy-cam = { git = "https://github.com/woodroww/easy-cam" }
+easy-cam = { path = "../easy-cam" }
